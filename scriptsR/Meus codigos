@@ -1,0 +1,81 @@
+#Atividade 04-04-2026
+#Nome: Lívia de Oliveira Rodrigues
+
+#1 - Criar script que confira para que pasta o projeto está apontando e, caso a pasta não exista, crie a pasta; e caso, a pasta já exista configure para a pasta de trabalho correta.
+install.packages("googledrive")
+library(googledrive)
+
+drive_auth()
+
+meu_projeto <- "CURSO R"
+pasta_no_drive <- drive_find(pattern = "meu_projeto", type = "folder")
+if (nrow(pasta_no_drive) == 0) {
+  pasta_alvo <- drive_mkdir(meu_projeto)
+  print("Pasta nova criada!")
+} else {
+  pasta_alvo <- pasta_no_drive
+  print("Pasta encontrada! O R já sabe onde ela está.")
+}
+2 - Construção de um prompt para buscar e esclarecer erros em um script R
+detectar_erro <- function(codigo_texto)
+ {
+  tryCatch(
+    {
+      # Executa o código passado como texto
+      resultado <- eval(parse(text = codigo_texto))
+      cat("\n✅ Código executado com sucesso!\n")
+      print(resultado)
+    },
+    error = function(e) {
+      # Mostra a mensagem de erro
+      cat("\n⚠️ Erro detectado:\n")
+      cat(e$message, "\n\n")
+    }
+  )
+}
+detectar_erro("library(pacote_que_nao_existe)")
+
+#3- Propor o else para o script abaixo: for (pkg in required_packages) { if (!require(pkg, character.only = TRUE)) { install.packages(pkg, dependencies = TRUE) library(pkg, character.only = TRUE) } }
+
+# Lista de pacotes que você quer usar
+ required_packages <- c("googledrive", "googlesheets4") 
+for (pkg in required_packages) 
+{ 
+if (!require(pkg, character.only = TRUE)) { # SE NÃO EXISTE: Instala e depois carrega install.packages(pkg, dependencies = TRUE) library(pkg, character.only = TRUE) print(paste("Pacote", pkg, "foi instalado e carregado agora.")) 
+}
+ else { # ELSE (CASO JÁ EXISTA): Apenas avisa que já está tudo ok print(paste("O pacote", pkg, "já estava instalado. Pronto para uso!")) } }
+
+4-Refatorar o script de forma tal que o CRUD que funcione de forma modular
+
+install.packages("googledrive")
+ library(googledrive) 
+ drive_auth()
+ 
+# 2. FUNÇÕES MODULARES 
+ 
+# --- CREATE (Criar) 
+ 
+ criar_pasta <- function(nome) { 
+drive_mkdir(nome) 
+   print("pasta criada")
+ } 
+ 
+# --- READ (Ler/Listar) 
+  listar_arquivos <- function(nome_pasta) 
+ { drive_ls(path = nome_pasta)
+  } 
+ # --- UPLOAD DE ARQUIVO 
+  upload_arquivo <- function(caminho_local, pasta_destino) {
+    drive_upload(
+      media = caminho_local,           # arquivo local
+      path = pasta_destino,            # pasta existente no Drive
+      name = basename(caminho_local)   # nome que terá no Drive
+    )
+    }
+  upload_arquivo("ola_mundo.txt", "livia")
+# --- DELETE (Apagar)
+ deletar_item  <- function(nome_item) { 
+   drive_rm(nome_item)
+   print("foi removido do Drive") 
+ } 
+ deletar_item("ola_mundo.txt")
