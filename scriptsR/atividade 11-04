@@ -1,0 +1,74 @@
+#aquisição dos dados
+#Configuração da área de trabalho
+
+
+#Instalar Pacotes
+remotes::install_github("rfsaldanha/microdatasus")
+install.packages("remotes")
+install.packages("readr")
+install.packages("tidyverse")   
+install.packages("googledrive")
+install.packages("rmarkdown")
+install.packages("tinytex")
+tinytex::install_tinytex(force = TRUE)
+
+#liberar os pacotes para uso no R
+
+library(microdatasus)
+library(remotes)
+library(tidyverse)
+library(readr)
+library(googledrive)
+library(rmarkdown)
+
+
+
+# obter o banco de dados a partir do ano inicial até o ano final
+dados_sinan <- fetch_datasus(
+  year_start = 2022,
+  year_end = 2022,
+  information_system = "SINAN-DENGUE"
+  
+) 
+
+#autenticar no Drive
+drive_auth()
+
+#Salvar no drive o banco de dados
+write.csv(dados_sinan,"dados_dengue_2022.csv", row.names = FALSE)
+drive_upload("dados_dengue_2022.csv",path ="Docs/Relatorios/dados_dengue_2022.csv")
+
+#testar banco de dados
+str(dados_sinan) #tipos das variaveis
+summary(dados_sinan) #analise estatistica (média, moda, mediana- resumo geral)
+names(dados_sinan) #possibilita listar as variaveis 
+View(dados_sinan) #possibilita visualizar a tabela com os dados
+
+#Criar o banco com as variaveis selecionadas para a Aanlise
+dados_dengue <- dados_sinan[,c("DT_NOTIFIC", "CLASSI_FIN", "CRITERIO")]
+
+#dados_sinan → seu banco original
+#[] → selecionar linhas e colunas
+#,c() → lista de variáveis
+
+View(dados_dengue)
+
+#contar os dados
+table(dados_dengue$CLASSI_FIN)
+
+#GERAR O GRAFICO
+barplot(table(dados_dengue$CLASSI_FIN),
+        main = "Distribuição dos casos",
+        xlab = "Classificação",
+        ylab = "Quantidade")
+
+#gerar pdf
+rmarkdown::render("analises.Rmd")
+
+#colocar o pdf dentro da pasta do drive
+pasta <- drive_get("Curso_R_Vigilancia/Docs/Relatorios")
+drive_upload(
+  media = "analises.pdf",
+  path = pasta
+)
+
