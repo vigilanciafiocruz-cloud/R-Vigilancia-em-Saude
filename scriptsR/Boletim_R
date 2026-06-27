@@ -1,0 +1,465 @@
+#instalar pacotes
+
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("foreign")
+install.packages("janitor")
+install.packages("read.dbc")
+install.packages("remotes")
+install.packages("kable")
+install.packages("gt")
+install.packages("httr")
+install.packages("jsonlite")
+install.packages("ggplot2")
+install.packages("geobr")
+install.packages("dplyr")
+install.packages("googledrive")
+install.packages("readxl")
+
+# instalar microdatasus
+remotes::install_github("rfsaldanha/microdatasus", force=TRUE)
+
+# carregar bibliotecas
+library(tidyverse)
+library(lubridate)
+library(foreign)
+library(janitor)
+library(remotes)
+library(read.dbc)
+library(microdatasus)
+library(kableExtra)
+library(ggplot2)
+library(gt)
+library(jsonlite)
+library(httr)
+library(sf)
+library(ggplot2)
+library(geobr)
+library(dplyr)
+library(googledrive)
+library(readxl)
+
+#acesso ao drive
+
+drive_auth()
+
+arquivo <- drive_find("BANCO_CHIK")
+
+drive_download(
+  arquivo,
+  path = "BANCO_CHIK.xlsx",
+  overwrite = TRUE
+)
+
+dados <- read_excel("BANCO_CHIK.xlsx")
+
+head(dados, 20)
+names(dados)
+
+#visualizar UFs (estados)
+estados<- unique(dados$SG_UF_NOT)
+print(estados)
+
+#Casos por semana epidemiolC3gica 
+
+#nrow conta quantas linhas um objeto possui 
+casos_df <- dados %>% filter(SG_UF_NOT=="53") 
+cat("Total de casos:", nrow(casos_df))
+
+coluna_sem_epi<- casos_df %>% mutate(semana_epi = epiweek(DT_NOTIFIC)) %>% group_by(semana_epi) %>% summarise(total=n())
+print(coluna_sem_epi, n=100)
+
+#criar o grafico
+
+ grafico1 <-ggplot(coluna_sem_epi, aes (x=semana_epi, y=total))+ geom_line(color = "#0B4F9C",linewidth =0.5)+ geom_point(color = "#0B4F9C",size = 0.8)+
+  labs(x="Semana epidemiologica", y= "Numero de casos", caption= "Fonte: Sistema de Informacao de Agravos de Notificacao (SINAN), 2025.",
+       title = "DistribuiC'ao dos casos de Chikungunya no Distrito Federal por semana epidemiolC3gica, 2025")+ scale_x_continuous(
+         breaks = seq(1, 53, by = 2))+ geom_text(aes(label = total), vjust = -0.7, size = 3) +
+  theme_minimal() + theme(plot.title = element_text(size = 16,face="bold", hjust = 0.5)) + 
+  theme(panel.grid.minor = element_blank(), panel.grid.major = element_line(color = "gray85",linetype = "dashed"
+    )
+  )
+
+print(grafico1)
+
+# Perfil EpidemiolC3gico dos casos por idade
+
+perfil_idade <-casos_df %>% mutate(idade_anos = 2025 - as.numeric(format(DT_NASC, "%Y"))
+)  %>% mutate(faixa = cut( idade_anos, breaks = c(0,9,19,29,39,49,59,69,79,100),
+labels = c( "0-9","10-19","20-29","30-39", "40-49","50-59","60-69","70-79","80+" ) ) ) %>% group_by(faixa) %>% summarise(total_idade=n())
+
+print(perfil_idade)
+
+#grafico por idade 
+ggplot(perfil_idade,
+       aes(x = faixa, y = total_idade)) +
+  
+  geom_bar(
+    stat = "identity",
+    fill = "#238B45",     # verde
+    color = "#000000"    # borda azul
+  ) +
+  
+  # rC3tulos dos valores
+  geom_text(
+    aes(label = total_idade),
+    vjust = -0.3,
+    size = 4,
+    fontface = "bold"
+  ) +
+  
+  labs(
+    title = "DistribuiC'C#o dos Casos de Chikungunya por Faixa EtC!ria no Distrito Federal, 2025",
+    x = "Faixa etC!ria",
+    y = "NC:mero de casos",
+    caption = "Fonte: SINAN, 2025."
+  ) +
+  
+  # remove fundo azul
+  theme_classic()
+
+# Perfil EpidemiolC3gico dos casos por sexo
+
+perfil_sexo <- casos_df %>% group_by(CS_SEXO) %>% summarise(total_sexo=n())
+print(perfil_sexo)
+
+#grafico por sexo
+
+ggplot(perfil_sexo, aes(x=CS_SEXO, y=total_sexo, fill = CS_SEXO))+
+  geom_col(width=0.3)+ theme_classic()+labs(title = "DistribuiC'C#o dos Casos de Chikungunya por sexo no Distrito Federal, 2025 ",
+  x = "Sexo", y = "NC:mero de casos", caption =  "Fonte: Sistema de InformaC'C#o de Agravos de NotificaC'C#o (SINAN), 2025.") + 
+  scale_x_discrete(labels = c("M" = "Masculino","F" = "Feminino"))+
+  geom_text(aes(label = total_sexo), vjust=-0.2)+ 
+  scale_fill_manual(values = c("M"="#2C7FB8","F"="#D95F8D"))+labs(fill = "Sexo")
+
+#grafico por raC'a/cor 
+
+perfil_raca <- casos_df  %>% mutate (
+  CS_RACA = recode(
+    as.character(CS_RACA),
+    "1" = "Branca",
+    "2" = "Preta",
+    "3" = "Amarela",
+    "4" = "Parda",
+    "5" = "IndC-gena",
+    "9" = "Ignorado"
+  )
+) %>% group_by(CS_RACA) %>% summarise(total_raca= n())
+
+print(perfil_raca)
+
+ggplot(perfil_raca,
+       aes(x = CS_RACA,
+           y = total_raca,
+           fill = CS_RACA)) +
+  geom_col(width=0.6, color= "#000000") +
+  theme_classic() +
+  labs(
+    title = "DistribuiC'C#o dos Casos de Chikungunya por raC'a no Distrito Federal, 2025",
+    x = "RaC'a/cor",
+    y = "NC:mero de casos",
+    caption = "Fonte: Sistema de InformaC'C#o de Agravos de NotificaC'C#o (SINAN), 2025.",
+    fill="RaC'a/cor"
+  ) +
+  geom_text(aes(label = total_raca), hjust = -0.4) +
+  scale_fill_manual(
+    values = c(
+      "Amarela" = "#E8F5E9",
+      "Branca" = "#C8E6C9",
+      "Ignorado" = "#A5D6A7",
+      "Parda" = "#81C784",
+      "Preta" = "#66BB6A"
+    )
+  ) 
+
+#grafico por evoluC'C#o
+
+perfil_evolucao <- casos_df %>%
+  mutate(
+    EVOLUCAO = recode(
+      as.character(EVOLUCAO),
+      "1" = "Cura",
+      "2" = "Cbito pelo agravo",
+      "3" = "Cbito por outras causas",
+      "4" = "Cbito em investigaC'C#o",
+      "9" = "Ignorado"
+    )
+  ) %>%
+  mutate(
+    EVOLUCAO = ifelse(
+      is.na(EVOLUCAO),
+      "Sem informaC'C#o",
+      EVOLUCAO
+    )
+  ) %>%
+  group_by(EVOLUCAO) %>% summarise(total_evolucao = n()) 
+
+print(perfil_evolucao)
+
+ggplot(
+  perfil_evolucao,
+  aes(
+    x = reorder(EVOLUCAO, total_evolucao),
+    y = total_evolucao,
+    fill = EVOLUCAO
+  )
+) +
+  geom_col(
+    width = 0.4,
+    color = "black"
+  ) +
+  geom_text(
+    aes(label = total_evolucao),
+    hjust = -0.2
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Cura" = "#D6EAF8",
+      "Ignorado" = "#85C1E9",
+      "Cbito por outras causas" = "#5DADE2",
+      "Sem informaC'C#o" = "#154360"
+    )
+  ) +
+  labs(
+    title = "DistribuiC'C#o dos casos de chikungunya segundo evoluC'C#o clC-nica, Distrito Federal, 2025",
+    x = "EvoluC'C#o clC-nica",
+    y = "NC:mero de casos",
+    caption = "Fonte: Sistema de InformaC'C#o de Agravos de NotificaC'C#o (SINAN), 2025."
+  ) +
+  theme_classic() +
+  theme(
+    legend.position = "none"
+  ) +  coord_flip()
+
+
+#tabela por classificaC'C#o final 
+
+tab1 <- casos_df %>% mutate(CLASSI_FIN = recode(as.character(CLASSI_FIN), "13"="CONFIRMADO", "5"="DESCARTADO"), CLASSI_FIN=replace_na(CLASSI_FIN,"EM BRANCO")) %>%
+count(CLASSI_FIN) %>% mutate(porcentagem = round(n/sum(n)*100,1)) %>% gt() %>% cols_label(CLASSI_FIN = "ClassificaC'C#o Final", n = "NC:mero de Casos", porcentagem = "(%)") %>%
+tab_header(title = "DistribuiC'C#o dos casos segundo classificaC'C#o final", subtitle = "Distrito Federal, 2025") %>%
+cols_align(align = "center", columns = everything()) %>%   tab_style(  style = cell_text(weight = "bold"),
+locations = cells_column_labels()) %>%  tab_style(style = list(cell_fill(color = "#D9EAF7"), cell_text(weight = "bold") ),
+locations = cells_column_labels()) %>% tab_style(style = cell_text(weight = "bold"), locations = cells_body( rows = CLASSI_FIN == "CONFIRMADO")) %>%
+opt_row_striping() %>% tab_source_note(source_note = "Fonte: SINAN, 2025.") 
+
+print(tab1)
+
+# Mapa por regiao de residencia -------------------------------------------
+
+# Procurar o arquivo
+
+arquivo <- drive_find("chick.png")
+
+knitr::include_graphics("chick.png")
+
+browseURL("chick.png")
+
+# =============================================================================
+# COMUNICACCO COM GEMINI - VERSCO CORRIGIDA
+# =============================================================================
+
+# Carregar bibliotecas necessC!rias
+if (!require("httr")) install.packages("httr", repos = "[cloud.r-project.org](https://cloud.r-project.org)")
+if (!require("jsonlite")) install.packages("jsonlite", repos = "[cloud.r-project.org](https://cloud.r-project.org)")
+
+library(httr)
+library(jsonlite)
+
+# -----------------------------------------------------------------------------
+# FUNCCO PARA CHAMAR A API GEMINI
+# -----------------------------------------------------------------------------
+
+chamar_gemini <- function(prompt_text, api_key = "AIzaSyDCWkh6ij5OAxkJH1BF19Y3snOujwJeTbY") {
+  
+  
+  # Se nC#o passar chave, tenta pegar da variC!vel de ambiente
+  if (is.null(api_key) || api_key == "") {
+    api_key <- Sys.getenv("GEMINI_API_KEY")
+  }
+  
+  # Se ainda estiver vazia, usa a chave hardcoded (APENAS PARA TESTES)
+  # IMPORTANTE: Em produC'C#o, use variC!vel de ambiente!
+  if (api_key == "") {
+    api_key <- "AIzaSyDCWkh6ij5OAxkJH1BF19Y3snOujwJeTbY"  # Sua chave aqui
+  }
+  
+  # Verifica se hC! chave disponC-vel
+  if (is.null(api_key) || api_key == "") {
+    cat("\nAVISO: Configure a chave GEMINI_API_KEY\n")
+    return("[Sem chave de API]")
+  }
+  
+  # URL da API (modelo gemini-2.0-flash C) mais estC!vel)
+  url <- paste0(
+    "https://generativelanguage.googleapis.com/v1beta/models/",
+    "gemini-2.5-flash:generateContent?key=",
+    api_key
+  )
+  
+  
+  # Corpo da requisiC'C#o em formato correto
+  body <- list(
+    contents = list(
+      list(
+        role = "user",
+        parts = list(
+          list(text = prompt_text)
+        )
+      )
+    )
+  )
+  
+  # Converte para JSON
+  body_json <- toJSON(body, auto_unbox = TRUE)
+  
+  # Chamada C  API com proteC'C#o de erro
+  response <- tryCatch({
+    POST(
+      url = url,
+      body = body_json,
+      encode = "raw",
+      add_headers("Content-Type" = "application/json")
+    )
+  }, error = function(e) {
+    cat("\nErro de conexC#o:", e$message, "\n")
+    return(NULL)
+  })
+  
+  # Verifica se houve erro na conexC#o
+  if (is.null(response)) {
+    return("[Erro ao conectar com API]")
+  }
+  
+  status <- status_code(response)
+  
+  # Sucesso (HTTP 200)
+  if (status == 200) {
+    parsed <- content(response, as = "parsed", encoding = "UTF-8")
+    
+    # Extrai o texto da resposta
+    if (!is.null(parsed$candidates) && length(parsed$candidates) > 0) {
+      texto <- tryCatch({
+        parsed$candidates[[1]]$content$parts[[1]]$text
+      }, error = function(e) {
+        "[Erro ao extrair texto da resposta]"
+      })
+      return(texto)
+    } else {
+      return("[Resposta vazia da API]")
+    }
+  }
+  
+  # Tratamento de erros especC-ficos
+  erro_msg <- tryCatch({
+    content(response, as = "parsed")$error$message
+  }, error = function(e) {
+    "Erro desconhecido"
+  })
+  
+  if (status == 400) {
+    return(paste0("[Erro 400 - RequisiC'C#o invC!lida: ", erro_msg, "]"))
+  }
+  
+  if (status == 403) {
+    return("[Erro 403 - API key invC!lida ou sem permissC#o para este modelo]")
+  }
+  
+  if (status == 404) {
+    return("[Erro 404 - Modelo nC#o encontrado. Verifique o nome do modelo.]")
+  }
+  
+  if (status == 429) {
+    return("[Erro 429 - Cota excedida. Aguarde alguns minutos.]")
+  }
+  
+  if (status == 500) {
+    return("[Erro 500 - Erro interno do servidor Google]")
+  }
+  
+  return(paste0("[Erro na API: HTTP ", status, " - ", erro_msg, "]"))
+}
+
+# =============================================================================
+# GERAR INTERPRETACCO DESCRITIVA COM IA
+# =============================================================================
+
+cat("\n")
+cat(paste(rep("=", 60), collapse = ""), "\n")
+cat("INICIANDO ANCLISE EPIDEMIOLCGICA COM IA\n")
+cat(paste(rep("=", 60), collapse = ""), "\n\n")
+
+# Verifica se o objeto casos_df existe
+if (!exists("casos_df")) {
+  cat("AVISO: Objeto 'casos_df' nC#o encontrado.\n")
+  cat("Criando dados de exemplo para teste...\n\n")
+}
+
+
+# Calcula estatC-sticas e avalia os graficos 
+total_casos <- nrow(casos_df)
+
+#calcular estatistica com ggplot
+
+dados_semana <- data.frame(
+  semana = coluna_sem_epi$semana_epi,
+  casos = coluna_sem_epi$total)
+
+dados_sexo <- data.frame(casos_sexo=perfil_sexo$CS_SEXO, 
+                         total_sexo=perfil_sexo$total_sexo)
+
+dados_idade<- data.frame(casos_idade=perfil_idade$faixa,
+                         total_idade=perfil_idade$total_idade)
+
+dados_classificacao <- data.frame(tab1)
+
+# Monta o prompt
+
+prompt_descritivo <- paste0(
+  "faC'a uma introduC'C#o inicial sobre a circulaC'C#o da chikungunya no DF e posteriormente explique 
+   com base na literatura cientifica os dados apresentados", "Tabela de casos:\n",
+  paste(capture.output(print(total_casos)), collapse = "\n"))
+
+
+prompt_semana_epi <- paste0(
+  "VocC* C) um epidemiologista analisando chikungunya.\n\n",
+  "Tabela semanal de casos:\n",
+  paste(capture.output(print(dados_semana)), collapse = "\n"),
+  "\n\nFaC'a uma interpretaC'C#o tC)cnica e objetiva."
+)
+prompt_sexo<- paste0(
+  "VocC* C) um epidemiologista analisando chikungunya.\n\n",
+  "Tabela semanal de casos:\n",
+  paste(capture.output(print(dados_sexo)), collapse = "\n"),
+  "\n\nFaC'a uma interpretaC'C#o tC)cnica e objetiva."
+)
+
+prompt_idade<-paste0(
+  "VocC* C) um epidemiologista analisando chikungunya.\n\n",
+  "Tabela semanal de casos:\n",
+  paste(capture.output(print(dados_idade)), collapse = "\n"),
+  "\n\nFaC'a uma interpretaC'C#o tC)cnica e objetiva.")
+
+prompt_class_final<-paste0(
+  "VocC* C) um epidemiologista analisando chikungunya.\n\n",
+  "Tabela semanal de casos:\n",
+  paste(capture.output(print(dados_classificacao)), collapse = "\n"),
+  "\n\nFaC'a uma interpretaC'C#o tC)cnica e objetiva.")
+  
+  
+# Chama a API
+texto_descritivo <- chamar_gemini(prompt_descritivo)
+texto_semana<- chamar_gemini(prompt_semana_epi)
+texto_dados_sexo<- chamar_gemini(prompt_sexo)
+texto_idade<- chamar_gemini(prompt_idade)
+texto_class<- chamar_gemini(prompt_class_final)
+
+
+# Exibe resultado
+cat(paste(rep("=", 60), collapse = ""), "\n")
+cat("INTERPRETACCO DESCRITIVA (GERADA POR IA)\n")
+cat(paste(rep("=", 60), collapse = ""), "\n\n")
+cat(texto_descritivo, "\n\n")
+cat(texto_semana, "\n\n")
+cat(texto_dados_sexo, "\n\n")
+cat(texto_idade,"\n\n")
+cat(texto_class,"\n\n")
